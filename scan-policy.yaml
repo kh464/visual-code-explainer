@@ -1,0 +1,18 @@
+﻿# Scan policy for visual-code-explainer.
+# Tune `full_scan_every_change_batches` to control the hard full-scan cadence.
+scan_policy:
+  first_run: full_scan
+  default_update_mode: incremental
+  full_scan_every_change_batches: 10
+  project_state_dir: .codex/visual-code-explainer
+  state_file: scan-state.yaml
+  index_file: project-index.json
+  file_hashes_file: file-hashes.json
+  graph_file: graph.json
+  full_scan_triggers:
+    - missing_state
+    - missing_or_corrupt_index
+    - major_project_structure_change
+    - framework_or_build_config_change
+    - extensive_file_moves_or_renames
+    - user_requested_full_scan

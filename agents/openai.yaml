@@ -1,0 +1,4 @@
+interface:
+  display_name: "Visual Code Explainer"
+  short_description: "Create visual pages that explain code structure."
+  default_prompt: "Use $visual-code-explainer to generate a visual explanation page for this codebase."
