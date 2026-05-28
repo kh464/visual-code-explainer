@@ -1101,6 +1101,8 @@ button {
   min-height: 300px;
   max-height: 48vh;
   padding: 14px;
+  cursor: grab;
+  touch-action: none;
   border: 1px solid #edf0f7;
   border-radius: var(--radius);
   background:
@@ -1111,6 +1113,20 @@ button {
   overflow: auto;
 }
 
+.uml-pan-space {
+  display: block;
+  box-sizing: border-box;
+}
+.uml-board.is-panning {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.uml-board.is-panning .uml-svg,
+.uml-svg {
+  user-select: none;
+  -webkit-user-select: none;
+}
 .uml-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));

@@ -9,7 +9,13 @@
     selectedDemoStep: 0,
     autoplayTimer: null,
     directoryQuery: "",
-    umlScale: 1
+    umlScale: 1,
+    umlPanning: false,
+    umlPanPointerId: null,
+    umlPanStartX: 0,
+    umlPanStartY: 0,
+    umlPanScrollLeft: 0,
+    umlPanScrollTop: 0
   };
 
   const fallbackNav = [
@@ -100,6 +106,7 @@
     $("#umlZoomIn").addEventListener("click", function () { setUmlScale(state.umlScale + 0.2); });
     $("#umlZoomReset").addEventListener("click", function () { setUmlScale(1); });
     $("#umlFullscreen").addEventListener("click", function () { toggleUmlFullscreen(); });
+    bindUmlPanEvents();
     $("#graphFullscreen").addEventListener("click", function () {
       $("#architecturePanel").classList.toggle("is-fullscreen");
       this.textContent = $("#architecturePanel").classList.contains("is-fullscreen") ? "退出全屏" : "全屏查看";
@@ -146,6 +153,7 @@
     $$(".stat-card").forEach(function (button) {
       button.classList.toggle("is-active", button.dataset.target === view);
     });
+    if (view === "features") window.requestAnimationFrame(renderFeatureDetail);
   }
 
   function renderProjectInfo() {
@@ -395,23 +403,77 @@
 
     const scaledWidth = Math.max(320, Math.round(canvasWidth * state.umlScale));
     const scaledHeight = Math.max(260, Math.round(canvasHeight * state.umlScale));
+    const viewportWidth = board.clientWidth || scaledWidth;
+    const viewportHeight = board.clientHeight || scaledHeight;
+    const panPaddingX = Math.max(180, Math.round(viewportWidth * 0.42));
+    const panPaddingY = Math.max(100, Math.round(viewportHeight * 0.24));
+    const panSpaceWidth = scaledWidth + panPaddingX * 2;
+    const panSpaceHeight = scaledHeight + panPaddingY * 2;
 
     board.innerHTML = `
-      <svg class="uml-svg" style="width:${scaledWidth}px;height:${scaledHeight}px;min-width:${scaledWidth}px" viewBox="0 0 ${canvasWidth} ${canvasHeight}" role="img" aria-label="${escapeHtml(feature.name || "功能模块")} UML 类图">
-        <defs>
-          <marker id="umlArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"></path>
-          </marker>
-          <marker id="umlTriangle" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
-            <path d="M 1 1 L 11 6 L 1 11 z" fill="#fff" stroke="#7c3aed" stroke-width="1.7"></path>
-          </marker>
-        </defs>
-        ${edgeMarkup}
-        ${nodeMarkup}
-      </svg>
+      <div class="uml-pan-space" style="width:${panSpaceWidth}px;height:${panSpaceHeight}px;padding:${panPaddingY}px ${panPaddingX}px">
+        <svg class="uml-svg" style="width:${scaledWidth}px;height:${scaledHeight}px;min-width:${scaledWidth}px" viewBox="0 0 ${canvasWidth} ${canvasHeight}" role="img" aria-label="${escapeHtml(feature.name || "功能模块")} UML 类图">
+          <defs>
+            <marker id="umlArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"></path>
+            </marker>
+            <marker id="umlTriangle" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+              <path d="M 1 1 L 11 6 L 1 11 z" fill="#fff" stroke="#7c3aed" stroke-width="1.7"></path>
+            </marker>
+          </defs>
+          ${edgeMarkup}
+          ${nodeMarkup}
+        </svg>
+      </div>
     `;
+    window.requestAnimationFrame(function () { centerUmlBoardHorizontally(board); });
   }
 
+  function centerUmlBoardHorizontally(board) {
+    if (!board) return;
+    const maxLeft = Math.max(0, board.scrollWidth - board.clientWidth);
+    if (maxLeft > 0) board.scrollLeft = Math.round(maxLeft / 2);
+  }
+
+  function bindUmlPanEvents() {
+    const board = $("#featureUmlBoard");
+    board.addEventListener("pointerdown", startUmlPan);
+    board.addEventListener("pointermove", moveUmlPan);
+    board.addEventListener("pointerup", stopUmlPan);
+    board.addEventListener("pointercancel", stopUmlPan);
+    board.addEventListener("lostpointercapture", stopUmlPan);
+  }
+
+  function startUmlPan(event) {
+    if (event.button !== 0) return;
+    const board = $("#featureUmlBoard");
+    state.umlPanning = true;
+    state.umlPanPointerId = event.pointerId;
+    state.umlPanStartX = event.clientX;
+    state.umlPanStartY = event.clientY;
+    state.umlPanScrollLeft = board.scrollLeft;
+    state.umlPanScrollTop = board.scrollTop;
+    board.classList.add("is-panning");
+    if (board.setPointerCapture) board.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  }
+
+  function moveUmlPan(event) {
+    if (!state.umlPanning || event.pointerId !== state.umlPanPointerId) return;
+    const board = $("#featureUmlBoard");
+    board.scrollLeft = state.umlPanScrollLeft - (event.clientX - state.umlPanStartX);
+    board.scrollTop = state.umlPanScrollTop - (event.clientY - state.umlPanStartY);
+    event.preventDefault();
+  }
+
+  function stopUmlPan(event) {
+    if (!state.umlPanning || event.pointerId !== state.umlPanPointerId) return;
+    const board = $("#featureUmlBoard");
+    state.umlPanning = false;
+    state.umlPanPointerId = null;
+    board.classList.remove("is-panning");
+    if (board.releasePointerCapture && (!board.hasPointerCapture || board.hasPointerCapture(event.pointerId))) board.releasePointerCapture(event.pointerId);
+  }
   function setUmlScale(nextScale) {
     const scale = Math.min(2.4, Math.max(0.6, Number(nextScale.toFixed(2))));
     if (scale === state.umlScale) return;
@@ -433,6 +495,7 @@
     const isOpen = typeof force === "boolean" ? force : !shell.classList.contains("is-fullscreen");
     shell.classList.toggle("is-fullscreen", isOpen);
     $("#umlFullscreen").textContent = isOpen ? "退出全屏" : "全屏查看";
+    window.requestAnimationFrame(function () { centerUmlBoardHorizontally($("#featureUmlBoard")); });
   }
   function renderUmlNode(position, item, kind) {
     const properties = Array.isArray(item.properties) ? item.properties : [];
