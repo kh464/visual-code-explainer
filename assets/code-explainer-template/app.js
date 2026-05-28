@@ -8,7 +8,8 @@
     selectedDemo: 0,
     selectedDemoStep: 0,
     autoplayTimer: null,
-    directoryQuery: ""
+    directoryQuery: "",
+    umlScale: 1
   };
 
   const fallbackNav = [
@@ -95,6 +96,10 @@
       showToast("当前页面已展示全部功能模块。");
     });
     $("#openFeatureDemo").addEventListener("click", openSelectedFeatureDemo);
+    $("#umlZoomOut").addEventListener("click", function () { setUmlScale(state.umlScale - 0.2); });
+    $("#umlZoomIn").addEventListener("click", function () { setUmlScale(state.umlScale + 0.2); });
+    $("#umlZoomReset").addEventListener("click", function () { setUmlScale(1); });
+    $("#umlFullscreen").addEventListener("click", function () { toggleUmlFullscreen(); });
     $("#graphFullscreen").addEventListener("click", function () {
       $("#architecturePanel").classList.toggle("is-fullscreen");
       this.textContent = $("#architecturePanel").classList.contains("is-fullscreen") ? "退出全屏" : "全屏查看";
@@ -108,6 +113,9 @@
     $("#directorySearch").addEventListener("input", function (event) {
       state.directoryQuery = event.target.value.trim().toLowerCase();
       renderDirectory();
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && $("#featureUmlShell").classList.contains("is-fullscreen")) toggleUmlFullscreen(false);
     });
   }
 
@@ -209,6 +217,7 @@
     $$(".feature-card").forEach(function (card) {
       card.addEventListener("click", function () {
         state.selectedFeature = card.dataset.featureId;
+        state.umlScale = 1;
         renderFeatures();
       });
     });
@@ -230,20 +239,14 @@
     $("#featureDetailTitle").textContent = feature.name || "未命名模块";
     $("#featureDetailSummary").textContent = feature.detail || feature.summary || "暂无模块说明。";
 
-    const files = Array.isArray(feature.files) ? feature.files : [];
     const entryPoints = Array.isArray(feature.entryPoints) ? feature.entryPoints : [];
     const classes = Array.isArray(feature.classes) ? feature.classes : [];
     const functions = Array.isArray(feature.functions) ? feature.functions : [];
     const relations = Array.isArray(feature.relations) ? feature.relations : [];
     const diagramEdges = buildFeatureEdges(classes, relations);
-    const inheritanceCount = diagramEdges.filter(isInheritanceEdge).length;
 
     const metaItems = [
-      { label: "入口", value: entryPoints.length ? entryPoints.join(" / ") : "待分析" },
-      { label: "文件", value: files.length ? `${files.length} 个核心文件` : "待分析" },
-      { label: "类", value: `${classes.length} 个` },
-      { label: "函数", value: `${functions.length} 个` },
-      { label: "继承", value: `${inheritanceCount} 条` }
+      { label: "入口", value: entryPoints.length ? entryPoints.join(" / ") : "待分析" }
     ];
 
     $("#featureMeta").innerHTML = metaItems.map(function (item) {
@@ -308,6 +311,7 @@
 
   function renderFeatureUmlDiagram(feature, classes, functions, edges) {
     const board = $("#featureUmlBoard");
+    updateUmlZoomControls();
     const classMap = new Map();
     const names = [];
     const seen = new Set();
@@ -389,8 +393,11 @@
       return renderUmlNode(position, item, nodeKind);
     }).join("");
 
+    const scaledWidth = Math.max(320, Math.round(canvasWidth * state.umlScale));
+    const scaledHeight = Math.max(260, Math.round(canvasHeight * state.umlScale));
+
     board.innerHTML = `
-      <svg class="uml-svg" viewBox="0 0 ${canvasWidth} ${canvasHeight}" role="img" aria-label="${escapeHtml(feature.name || "功能模块")} UML 类图">
+      <svg class="uml-svg" style="width:${scaledWidth}px;height:${scaledHeight}px;min-width:${scaledWidth}px" viewBox="0 0 ${canvasWidth} ${canvasHeight}" role="img" aria-label="${escapeHtml(feature.name || "功能模块")} UML 类图">
         <defs>
           <marker id="umlArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"></path>
@@ -405,6 +412,28 @@
     `;
   }
 
+  function setUmlScale(nextScale) {
+    const scale = Math.min(2.4, Math.max(0.6, Number(nextScale.toFixed(2))));
+    if (scale === state.umlScale) return;
+    state.umlScale = scale;
+    renderFeatureDetail();
+  }
+
+  function updateUmlZoomControls() {
+    const value = $("#umlZoomValue");
+    if (!value) return;
+    value.textContent = `${Math.round(state.umlScale * 100)}%`;
+    $("#umlZoomOut").disabled = state.umlScale <= 0.6;
+    $("#umlZoomIn").disabled = state.umlScale >= 2.4;
+  }
+
+  function toggleUmlFullscreen(force) {
+    const shell = $("#featureUmlShell");
+    if (!shell) return;
+    const isOpen = typeof force === "boolean" ? force : !shell.classList.contains("is-fullscreen");
+    shell.classList.toggle("is-fullscreen", isOpen);
+    $("#umlFullscreen").textContent = isOpen ? "退出全屏" : "全屏查看";
+  }
   function renderUmlNode(position, item, kind) {
     const properties = Array.isArray(item.properties) ? item.properties : [];
     const methods = Array.isArray(item.methods) ? item.methods : [];

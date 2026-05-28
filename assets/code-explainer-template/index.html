@@ -87,7 +87,21 @@
                     <button class="text-button" type="button" id="openFeatureDemo">打开演示</button>
                   </div>
                   <div class="feature-meta" id="featureMeta"></div>
-                  <div class="uml-board" id="featureUmlBoard" aria-label="功能模块 UML 关系图"></div>
+                  <section class="uml-shell" id="featureUmlShell" aria-label="功能模块 UML 展示区">
+                    <div class="uml-toolbar">
+                      <div class="uml-toolbar-title">
+                        <span>UML 类图</span>
+                        <strong id="umlZoomValue">100%</strong>
+                      </div>
+                      <div class="uml-toolbar-actions">
+                        <button class="icon-button" type="button" id="umlZoomOut" aria-label="缩小 UML 图">−</button>
+                        <button class="icon-button" type="button" id="umlZoomIn" aria-label="放大 UML 图">+</button>
+                        <button class="text-button" type="button" id="umlZoomReset">重置</button>
+                        <button class="text-button" type="button" id="umlFullscreen">全屏查看</button>
+                      </div>
+                    </div>
+                    <div class="uml-board" id="featureUmlBoard" aria-label="功能模块 UML 关系图"></div>
+                  </section>
                   <div class="relation-panel" id="featureRelationPanel"></div>
                 </aside>
               </div>
