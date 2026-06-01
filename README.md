@@ -131,6 +131,8 @@ scan_policy:
   full_scan_every_change_batches: 10
 ```
 
+当前版本里，增量扫描是 Codex 按 `scan-policy.yaml` 执行的工作策略。仓库还没有提供独立的扫描器脚本，也就是说这里没有单独实现文件 hash、索引缓存和变更检测引擎。如果你要把它接到自己的自动化流水线里，需要另外补扫描器，或者继续让 Codex 在运行 skill 时执行这套策略。
+
 你可以按项目规模调整。项目小，可以调低；项目大、变动频繁，可以调高一点。
 
 ## 为什么使用固定模板
@@ -174,6 +176,7 @@ node scripts/validate-template-data.js assets/code-explainer-template/template-d
 
 ```text
 visual-code-explainer/
+├── package.json
 ├── SKILL.md
 ├── scan-policy.yaml
 ├── agents/
@@ -187,17 +190,23 @@ visual-code-explainer/
 │   └── reference/
 │       └── frontend-page-sample.png
 └── scripts/
+    ├── check-skill.js
     └── validate-template-data.js
 ```
 
 ## 本地检查
 
-改完 skill 或模板后，可以跑这些检查：
+改完 skill 或模板后，优先跑统一检查：
 
 ```bash
-node --check assets/code-explainer-template/app.js
-node --check assets/code-explainer-template/template-data.js
-node --check scripts/validate-template-data.js
+npm run validate
+```
+
+它会检查必要文件、`SKILL.md` metadata、agent 配置、模板 JS 语法、demo data 结构、模板示例残留保护、README 关键说明和 License。
+
+也可以单独跑模板数据检查：
+
+```bash
 node scripts/validate-template-data.js assets/code-explainer-template/template-data.js --allow-demo
 ```
 

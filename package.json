@@ -1,0 +1,11 @@
+{
+  "name": "visual-code-explainer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Codex skill for generating interactive visual code-explainer dashboards.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "validate": "node scripts/check-skill.js",
+    "validate:data": "node scripts/validate-template-data.js assets/code-explainer-template/template-data.js --allow-demo"
+  }
+}
