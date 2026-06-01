@@ -7,6 +7,7 @@
     selectedFeature: null,
     selectedDemo: 0,
     selectedDemoStep: 0,
+    selectedTest: 0,
     autoplayTimer: null,
     directoryQuery: "",
     umlScale: 1,
@@ -57,8 +58,6 @@
         updatedAt: project.updatedAt || "-",
         generatedAt: project.generatedAt || new Date().toISOString().slice(0, 10),
         generator: project.generator || "CodeX",
-        title: project.title || "你好！我是 CodeX",
-        subtitle: project.subtitle || "我已为你分析并生成了项目的可视化说明",
         summary: project.summary || "当前项目的功能、模块关系、运行流程和关键代码入口已整理为可交互演示面板。",
         points: Array.isArray(project.points) ? project.points : [],
         quickActions: Array.isArray(project.quickActions) ? project.quickActions : []
@@ -76,7 +75,6 @@
   function init() {
     renderNavigation();
     renderProjectInfo();
-    renderWelcome();
     renderOverview();
     renderStats();
     renderFeatures();
@@ -90,11 +88,7 @@
   }
 
   function bindGlobalEvents() {
-    $("#shareButton").addEventListener("click", sharePage);
-    $("#themeButton").addEventListener("click", function () {
-      document.body.classList.toggle("theme-dim");
-      showToast(document.body.classList.contains("theme-dim") ? "已切换到柔和主题" : "已切换到默认主题");
-    });
+
     $("#regenButton").addEventListener("click", function () {
       showToast("已记录重新生成请求，请在 Codex 中执行生成流程。");
     });
@@ -169,10 +163,6 @@
     }).join("");
   }
 
-  function renderWelcome() {
-    $("#welcomeTitle").textContent = data.project.title;
-    $("#welcomeSubtitle").textContent = data.project.subtitle;
-  }
 
   function renderOverview() {
     $("#overviewSummary").textContent = data.project.summary;
@@ -728,29 +718,69 @@
 
   function renderTests() {
     const tests = data.tests || { items: [] };
+    const items = Array.isArray(tests.items) ? tests.items : [];
+    if (!items[state.selectedTest]) state.selectedTest = 0;
+    const selected = items[state.selectedTest] || null;
+
     $("#testsLayout").innerHTML = `
       <section class="test-summary-card">
         <p class="section-label">Coverage</p>
         <strong>${escapeHtml(tests.coverage || "-")}</strong>
         <span>${escapeHtml(tests.summary || "暂无测试信息")}</span>
       </section>
-      <div class="test-list">
-        ${(tests.items || []).map(function (item) {
-          return `<article class="test-card"><span>${escapeHtml(item.type || "Test")}</span><h3>${escapeHtml(item.name)}</h3><p>${escapeHtml(item.detail)}</p><strong>${escapeHtml(item.status || "已通过")}</strong></article>`;
-        }).join("")}
+      <div class="test-workspace">
+        <div class="test-list" aria-label="测试模块列表">
+          ${items.map(function (item, index) {
+            return `<button class="test-card ${index === state.selectedTest ? "is-active" : ""}" type="button" data-test-index="${index}"><span>${escapeHtml(item.type || "Test")}</span><h3>${escapeHtml(item.name)}</h3><p>${escapeHtml(item.detail)}</p><strong>${escapeHtml(item.status || "已通过")}</strong></button>`;
+          }).join("") || `<div class="empty-state compact">暂无测试模块。</div>`}
+        </div>
+        ${renderTestCasePanel(selected)}
       </div>
     `;
+
+    $$(".test-card").forEach(function (button) {
+      button.addEventListener("click", function () {
+        state.selectedTest = Number(button.dataset.testIndex);
+        renderTests();
+      });
+    });
   }
 
-  function sharePage() {
-    const url = window.location.href;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).then(function () { showToast("页面链接已复制"); }).catch(function () { showToast(url); });
-    } else {
-      showToast(url);
-    }
+  function renderTestCasePanel(item) {
+    if (!item) return `<section class="test-case-panel"><div class="empty-state">选择一个测试模块查看测试用例。</div></section>`;
+    const cases = Array.isArray(item.cases) ? item.cases : [];
+    return `
+      <section class="test-case-panel" aria-label="测试用例详情">
+        <div class="test-case-head">
+          <div>
+            <p class="section-label">Test Cases</p>
+            <h3>${escapeHtml(item.name)}</h3>
+            <p>${escapeHtml(item.detail || "查看该测试模块覆盖的核心场景。")}</p>
+          </div>
+          <strong>${escapeHtml(item.status || "已通过")}</strong>
+        </div>
+        <div class="test-case-meta">
+          <div><span>测试文件</span><code>${escapeHtml(item.file || "待分析")}</code></div>
+          <div><span>运行命令</span><code>${escapeHtml(item.command || "待分析")}</code></div>
+          <div><span>用例数量</span><code>${cases.length} 个</code></div>
+        </div>
+        <div class="test-case-list">
+          ${cases.length ? cases.map(function (testCase, index) {
+            return `
+              <article class="test-case-item">
+                <span class="test-case-index">${index + 1}</span>
+                <div>
+                  <div class="test-case-title"><h4>${escapeHtml(testCase.name)}</h4><strong>${escapeHtml(testCase.status || "已通过")}</strong></div>
+                  <p>${escapeHtml(testCase.scenario || testCase.detail || "暂无场景说明")}</p>
+                  <code>${escapeHtml(testCase.assertion || "断言待分析")}</code>
+                </div>
+              </article>
+            `;
+          }).join("") : `<div class="empty-state compact">该测试模块暂未提取到测试用例。</div>`}
+        </div>
+      </section>
+    `;
   }
-
   function showToast(message) {
     const toast = $("#toast");
     toast.textContent = message;

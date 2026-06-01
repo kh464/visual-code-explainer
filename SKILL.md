@@ -18,8 +18,9 @@ The output must feel like a polished AI project-management SaaS dashboard, not a
 5. Infer module relationships only from evidence in code. Mark uncertain relationships as `inferred relationship`.
 6. Copy the bundled frontend template from `assets/code-explainer-template/` into the target output location before writing project content.
 7. Generate or update only `template-data.js` for routine runs. Keep `index.html`, `styles.css`, and `app.js` stable unless the user explicitly asks to redesign the template or the target framework requires a port.
-8. Verify that the generated page is an interactive UI: sidebar navigation switches views without page scrolling, statistic cards open their target views, theme/share buttons respond, feature cards update the module drilldown/UML panel, UML zoom/reset/fullscreen controls respond, UML can be panned in all directions by holding the left mouse button and dragging, the feature demo button opens the matching demo, the module graph renders, runtime timeline renders, demo controls switch steps, autoplay works, tests render, and code-directory search filters rows.
-9. Tell the user where the page was created, how to open it, what it includes, and which relationships are confirmed versus inferred.
+8. Validate generated data with `node scripts/validate-template-data.js <output>/template-data.js`. Use `--allow-demo` only when validating the bundled sample data inside this skill.
+9. Verify that the generated page is an interactive UI: sidebar navigation switches views without page scrolling, statistic cards open their target views, feature cards update the stacked module drilldown/UML panel below, UML zoom/reset/fullscreen controls respond, UML can be panned in all directions by holding the left mouse button and dragging, the feature demo button opens the matching demo, the module graph renders, runtime timeline renders, demo controls switch steps, autoplay works, test modules can be clicked to show test cases, and code-directory search filters rows.
+10. Tell the user where the page was created, how to open it, what it includes, and which relationships are confirmed versus inferred.
 
 ## Output Location
 
@@ -44,13 +45,14 @@ docs/code-explainer/template-data.js
 Include these modules unless the project context makes one impossible:
 
 - Dark left sidebar with product identity, click-to-switch navigation, project information, and a regenerate button.
-- Top AI welcome card introducing CodeX and the generated project explanation.
+- Compact main area that starts directly with clickable project statistic cards; do not include a top AI welcome card because it wastes vertical space.
 - Clickable project statistic cards for feature modules, core files, module relationships, runtime flows, and tests or coverage. Each statistic must provide a `target` view such as `features`, `directory`, `architecture`, `runtime`, or `tests`.
 - Implemented feature cards with icons, short descriptions, status labels, and a click-driven module drilldown panel showing a zoomable, fullscreen-capable SVG UML class diagram: class nodes, attributes, methods, standalone functions, call/data edges, and class inheritance/implementation edges.
 - Module relationship diagram showing frontend, API gateway, business modules, and persistence/data nodes.
 - Runtime timeline from user request through frontend, API, business logic, database, response, and rendering.
 - Interactive demo area with feature menu, step cards, previous/next controls, autoplay, and mock UI panels.
 - Code directory table listing high-value files, responsibilities, related features, and reading reasons.
+- Tests view with the coverage summary aligned beside clickable test modules, plus a wide full-row detail panel showing test files, run commands, and extracted test cases.
 
 ## Evidence Rules
 
@@ -74,20 +76,29 @@ assets/code-explainer-template/styles.css
 assets/code-explainer-template/app.js
 assets/code-explainer-template/template-data.js
 assets/reference/frontend-page-sample.png
+scripts/validate-template-data.js
 ```
 
 Rules:
 
-- Use the current SaaS Dashboard layout: 220px dark sidebar, light main area, AI welcome card, five clickable stat cards, click-switched view stack with internally scrollable views, feature grid plus module drilldown/UML panel, module graph, runtime timeline, interactive demo, code directory, and tests view.
+- Use the current SaaS Dashboard layout: 220px dark sidebar, light main area, five clickable stat cards at the top, click-switched view stack with internally scrollable views, stacked feature grid above the module drilldown/UML panel, module graph, runtime timeline, interactive demo, code directory, and tests view. Do not include the old top AI welcome card.
 - Copy `index.html`, `styles.css`, and `app.js` unchanged for normal project runs.
 - Regenerate `template-data.js` from project analysis. Treat it as the main project-specific artifact.
 - Use Simplified Chinese for all human-facing template UI text and generated `template-data.js` content by default, unless the user explicitly requests another language.
 - Preserve object keys, file paths, ids, and machine-readable values such as `call`, `data`, `confirmed`, or `inferred` when they are needed by the template logic.
-- Preserve the data contract used by `template-data.js`: `navigation`, `project`, `stats`, `features`, `graph.nodes`, `graph.edges`, `runtimeSteps`, `demos`, `codeDirectory`, and `tests`. Each `features[]` item should include `id`, `name`, `summary`, optional `detail`, `entryPoints`, `files`, `classes`, `functions`, and `relations` when discoverable. Use `classes[].name`, `classes[].type`, optional `classes[].properties`, `classes[].methods`, `classes[].extends`, `classes[].implements`, and `relations[].from`, `relations[].to`, `relations[].label`, `relations[].type` (`call`, `data`, `inheritance`, or `implements`).
-- Keep the page interactive. The output must support sidebar view switching, statistic-card view switching, share/theme buttons, feature-card selection that stays on the feature page and updates the SVG UML class diagram, UML zoom in/out/reset, left-mouse drag panning in all directions, and fullscreen toggles, a separate `打开演示` button for matching demos, SVG graph rendering, runtime timeline, demo menu, demo step switching, autoplay, fullscreen toggles, tests view, and code-directory search. The desktop app should use click-to-switch pages instead of one long document, but each active page/view must allow internal vertical scrolling so hidden or future expanded content remains reachable.
+- Preserve the data contract used by `template-data.js`: `navigation`, `project`, `stats`, `features`, `graph.nodes`, `graph.edges`, `runtimeSteps`, `demos`, `codeDirectory`, and `tests`. Each `features[]` item should include `id`, `name`, `summary`, optional `detail`, `entryPoints`, `files`, `classes`, `functions`, and `relations` when discoverable. Use `classes[].name`, `classes[].type`, optional `classes[].properties`, `classes[].methods`, `classes[].extends`, `classes[].implements`, and `relations[].from`, `relations[].to`, `relations[].label`, `relations[].type` (`call`, `data`, `inheritance`, or `implements`). Each `tests.items[]` item should include `type`, `name`, `detail`, `status`, optional `file`, optional `command`, and `cases[]`; each `cases[]` item should include `name`, `scenario` or `detail`, `assertion`, and `status` when discoverable.
+- Keep the page interactive. The output must support sidebar view switching, statistic-card view switching, feature-card selection that stays on the feature page and updates the SVG UML class diagram below the feature grid, UML zoom in/out/reset, left-mouse drag panning in all directions, and fullscreen toggles, a separate `打开演示` button for matching demos, SVG graph rendering, runtime timeline, demo menu, demo step switching, autoplay, fullscreen toggles, clickable tests view with test-case details, and code-directory search. The desktop app should use click-to-switch pages instead of one long document, but each active page/view must allow internal vertical scrolling so hidden or future expanded content remains reachable.
 - If porting to React, Vue, Next.js, or another frontend stack, keep the same information architecture and interactions from the static template instead of inventing a new layout.
 - Do not inline the entire project explanation as fixed HTML blocks when the same content belongs in generated data.
 - Do not replace the interactive UI with a canvas screenshot, a flat image, or absolutely positioned decorative elements that cannot be inspected or interacted with.
+
+## Template Data Guardrails
+
+- Replace all bundled demo placeholders in real project runs. Do not leave sample project names, sample users, sample task files, or fake test files unless they actually exist in the target project.
+- Adapt feature labels to the project type. For backend-only, CLI, SDK, library, data pipeline, or infrastructure projects, treat APIs, commands, packages, jobs, providers, schemas, or deployment units as feature modules instead of forcing a frontend/user-management story.
+- Prefer `待分析`, `未发现`, or empty arrays over invented evidence. If no tests, coverage, demos, inheritance, or database layer are found, show that clearly instead of fabricating coverage or relationships.
+- Keep `template-data.js` project-specific and evidence-backed. Use mock demo panels only to illustrate an already-confirmed feature, and label them as demo data when they are not directly executable.
+- Run `node scripts/validate-template-data.js <output>/template-data.js` before finishing. The validator should fail real project output that still contains bundled demo placeholders or broken data relationships.
 
 ## Scan Strategy
 
@@ -115,6 +126,7 @@ After generating the page, respond concisely with:
 - 运行流程时间线
 - 功能交互演示区
 - 代码目录
+- 测试覆盖与用例详情
 
 说明：
 - 页面基于当前代码结构自动分析生成。

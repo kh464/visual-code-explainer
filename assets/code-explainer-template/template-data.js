@@ -14,8 +14,6 @@ window.CODE_EXPLAINER_DATA = {
     updatedAt: "2026-05-28",
     generatedAt: "2026-05-28 15:30",
     generator: "CodeX",
-    title: "你好！我是 CodeX",
-    subtitle: "我已为你分析并生成了项目的可视化说明",
     summary: "这个演示面板把项目功能、核心文件、模块关系、运行流程、交互演示和测试质量拆成可点击页面，用户无需滚动即可逐块理解代码做了什么。",
     points: [
       { title: "功能清晰", detail: "先看当前项目有哪些已实现能力。", target: "features" },
@@ -241,10 +239,58 @@ window.CODE_EXPLAINER_DATA = {
     coverage: "86%",
     summary: "当前示例展示单元测试覆盖率、关键测试文件和测试状态。",
     items: [
-      { type: "Unit", name: "用户服务测试", detail: "覆盖注册、登录、权限校验。", status: "已通过" },
-      { type: "Unit", name: "任务服务测试", detail: "覆盖任务创建、分配、状态更新。", status: "已通过" },
-      { type: "Component", name: "看板组件测试", detail: "覆盖任务拖拽和列状态渲染。", status: "已通过" },
-      { type: "API", name: "网关路由测试", detail: "覆盖接口路由和错误处理。", status: "已通过" }
+      {
+        type: "Unit",
+        name: "用户服务测试",
+        detail: "覆盖注册、登录、权限校验。",
+        status: "已通过",
+        file: "tests/userService.test.ts",
+        command: "npm test -- userService",
+        cases: [
+          { name: "注册新用户", scenario: "输入合法账号、邮箱和角色后创建用户。", assertion: "expect(registerUser(payload)).resolves.toMatchObject({ status: 'active' })", status: "已通过" },
+          { name: "拒绝重复邮箱", scenario: "邮箱已存在时返回业务错误。", assertion: "expect(registerUser(duplicateEmail)).rejects.toThrow('email exists')", status: "已通过" },
+          { name: "登录生成会话", scenario: "账号密码正确时生成登录会话。", assertion: "expect(login(credentials)).resolves.toHaveProperty('token')", status: "已通过" }
+        ]
+      },
+      {
+        type: "Unit",
+        name: "任务服务测试",
+        detail: "覆盖任务创建、分配、状态更新。",
+        status: "已通过",
+        file: "tests/taskService.test.ts",
+        command: "npm test -- taskService",
+        cases: [
+          { name: "创建任务", scenario: "提交标题、负责人和优先级后保存任务。", assertion: "expect(createTask(input)).resolves.toMatchObject({ status: 'todo' })", status: "已通过" },
+          { name: "分配负责人", scenario: "把任务分配给指定成员。", assertion: "expect(assignTask(taskId, userId)).resolves.toHaveProperty('assigneeId', userId)", status: "已通过" },
+          { name: "更新任务状态", scenario: "任务从待处理切换到进行中。", assertion: "expect(updateTaskStatus(id, 'doing')).resolves.toHaveProperty('status', 'doing')", status: "已通过" }
+        ]
+      },
+      {
+        type: "Component",
+        name: "看板组件测试",
+        detail: "覆盖任务拖拽和列状态渲染。",
+        status: "已通过",
+        file: "tests/KanbanBoard.test.tsx",
+        command: "npm test -- KanbanBoard",
+        cases: [
+          { name: "渲染看板列", scenario: "根据状态分组展示任务列。", assertion: "expect(screen.getByText('进行中')).toBeInTheDocument()", status: "已通过" },
+          { name: "拖拽任务卡片", scenario: "拖动任务到新列后触发状态更新。", assertion: "expect(onStatusChange).toHaveBeenCalledWith(taskId, 'done')", status: "已通过" },
+          { name: "空列展示", scenario: "没有任务时展示空状态。", assertion: "expect(screen.getByText('暂无任务')).toBeVisible()", status: "已通过" }
+        ]
+      },
+      {
+        type: "API",
+        name: "网关路由测试",
+        detail: "覆盖接口路由和错误处理。",
+        status: "已通过",
+        file: "tests/gateway.test.ts",
+        command: "npm test -- gateway",
+        cases: [
+          { name: "路由用户请求", scenario: "用户接口请求转发到用户模块。", assertion: "expect(route('/api/users')).toEqual('user')", status: "已通过" },
+          { name: "路由任务请求", scenario: "任务接口请求转发到任务模块。", assertion: "expect(route('/api/tasks')).toEqual('task')", status: "已通过" },
+          { name: "处理未知路径", scenario: "未知接口返回 404。", assertion: "expect(route('/api/unknown')).toThrow('not found')", status: "已通过" }
+        ]
+      }
     ]
   }
 };
