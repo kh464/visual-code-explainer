@@ -1958,6 +1958,38 @@ body {
   stroke-width: 5px;
 }
 
+.uml-edge-label-group {
+  pointer-events: none;
+}
+
+.uml-edge-label-group rect {
+  fill: rgba(255, 255, 255, 0.94);
+  stroke: #dbeafe;
+  stroke-width: 1;
+  filter: drop-shadow(0 4px 8px rgba(15, 23, 42, 0.1));
+}
+
+.uml-edge-label-group .uml-edge-label {
+  stroke-width: 0;
+}
+
+.uml-node {
+  cursor: grab;
+}
+
+.uml-node.is-dragging {
+  cursor: grabbing;
+}
+
+.uml-node.is-dragging .uml-node-box {
+  stroke: #7c3aed;
+  stroke-width: 2.4;
+}
+
+.uml-board.is-dragging-node {
+  cursor: grabbing;
+}
+
 .uml-node-box {
   fill: #fff;
   stroke: #bfdbfe;

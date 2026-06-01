@@ -16,7 +16,13 @@
     umlPanStartX: 0,
     umlPanStartY: 0,
     umlPanScrollLeft: 0,
-    umlPanScrollTop: 0
+    umlPanScrollTop: 0,
+    umlNodeDragging: false,
+    umlNodePointerId: null,
+    umlNodeStartX: 0,
+    umlNodeStartY: 0,
+    umlNodeOriginX: 0,
+    umlNodeOriginY: 0
   };
 
   const fallbackNav = [
@@ -377,9 +383,17 @@
       const marker = isInheritanceEdge(edge) ? "url(#umlTriangle)" : "url(#umlArrow)";
       const cssType = `is-${edge.type}`;
       return `
-        <path class="uml-edge ${cssType}" d="${line.path}" marker-end="${marker}"></path>
-        <text class="uml-edge-label" x="${line.labelX}" y="${line.labelY}" text-anchor="middle">${escapeHtml(shortText(edge.label || featureEdgeLabel(edge.type), 30))}</text>
+        <path class="uml-edge ${cssType}" data-edge-index="${index}" data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}" data-type="${escapeHtml(edge.type)}" d="${line.path}" marker-end="${marker}"></path>
       `;
+    }).join("");
+
+    const edgeLabelMarkup = edges.map(function (edge, index) {
+      const from = positions.get(edge.from);
+      const to = positions.get(edge.to);
+      if (!from || !to) return "";
+      const line = umlEdgeLine(from, to, edge.type, index);
+      const label = shortText(edge.label || featureEdgeLabel(edge.type), 30);
+      return renderUmlEdgeLabel(index, line, label);
     }).join("");
 
     const nodeMarkup = names.map(function (name) {
@@ -413,16 +427,65 @@
           </defs>
           ${edgeMarkup}
           ${nodeMarkup}
+          ${edgeLabelMarkup}
         </svg>
       </div>
     `;
-    window.requestAnimationFrame(function () { centerUmlBoardHorizontally(board); });
+    bindUmlNodeDragEvents(board);
+    window.requestAnimationFrame(function () {
+      centerUmlBoardHorizontally(board);
+      updateUmlEdges(board);
+    });
   }
 
   function centerUmlBoardHorizontally(board) {
     if (!board) return;
     const maxLeft = Math.max(0, board.scrollWidth - board.clientWidth);
     if (maxLeft > 0) board.scrollLeft = Math.round(maxLeft / 2);
+  }
+
+  function renderUmlEdgeLabel(index, line, label) {
+    const width = umlEdgeLabelWidth(label);
+    return `
+      <g class="uml-edge-label-group" data-label-index="${index}" transform="translate(${line.labelX}, ${line.labelY})">
+        <rect x="${-width / 2}" y="-19" width="${width}" height="24" rx="12"></rect>
+        <text class="uml-edge-label" x="0" y="-3" text-anchor="middle">${escapeHtml(label)}</text>
+      </g>
+    `;
+  }
+
+  function umlEdgeLabelWidth(label) {
+    const length = Array.from(String(label || "")).length;
+    return Math.min(190, Math.max(58, length * 8 + 24));
+  }
+
+  function getUmlNodeDomPosition(node) {
+    return {
+      x: Number(node.dataset.x || 0),
+      y: Number(node.dataset.y || 0),
+      w: Number(node.dataset.w || 0),
+      h: Number(node.dataset.h || 0)
+    };
+  }
+
+  function findUmlNodeById(board, id) {
+    return $$(".uml-node", board).find(function (node) {
+      return node.dataset.nodeId === id;
+    });
+  }
+
+  function updateUmlEdges(board) {
+    if (!board) return;
+    $$(".uml-edge", board).forEach(function (edgePath) {
+      const fromNode = findUmlNodeById(board, edgePath.dataset.from);
+      const toNode = findUmlNodeById(board, edgePath.dataset.to);
+      if (!fromNode || !toNode) return;
+      const index = Number(edgePath.dataset.edgeIndex || 0);
+      const line = umlEdgeLine(getUmlNodeDomPosition(fromNode), getUmlNodeDomPosition(toNode), edgePath.dataset.type, index);
+      edgePath.setAttribute("d", line.path);
+      const label = $(`.uml-edge-label-group[data-label-index="${index}"]`, board);
+      if (label) label.setAttribute("transform", `translate(${line.labelX}, ${line.labelY})`);
+    });
   }
 
   function bindUmlPanEvents() {
@@ -434,8 +497,19 @@
     board.addEventListener("lostpointercapture", stopUmlPan);
   }
 
+  function bindUmlNodeDragEvents(board) {
+    $$(".uml-node", board).forEach(function (node) {
+      node.addEventListener("pointerdown", startUmlNodeDrag);
+      node.addEventListener("pointermove", moveUmlNodeDrag);
+      node.addEventListener("pointerup", stopUmlNodeDrag);
+      node.addEventListener("pointercancel", stopUmlNodeDrag);
+      node.addEventListener("lostpointercapture", stopUmlNodeDrag);
+    });
+  }
+
   function startUmlPan(event) {
     if (event.button !== 0) return;
+    if (event.target.closest && event.target.closest(".uml-node")) return;
     const board = $("#featureUmlBoard");
     state.umlPanning = true;
     state.umlPanPointerId = event.pointerId;
@@ -463,6 +537,49 @@
     state.umlPanPointerId = null;
     board.classList.remove("is-panning");
     if (board.releasePointerCapture && (!board.hasPointerCapture || board.hasPointerCapture(event.pointerId))) board.releasePointerCapture(event.pointerId);
+  }
+
+  function startUmlNodeDrag(event) {
+    if (event.button !== 0) return;
+    const node = event.currentTarget;
+    const board = $("#featureUmlBoard");
+    state.umlNodeDragging = true;
+    state.umlNodePointerId = event.pointerId;
+    state.umlNodeStartX = event.clientX;
+    state.umlNodeStartY = event.clientY;
+    state.umlNodeOriginX = Number(node.dataset.x || 0);
+    state.umlNodeOriginY = Number(node.dataset.y || 0);
+    node.classList.add("is-dragging");
+    board.classList.add("is-dragging-node");
+    if (node.setPointerCapture) node.setPointerCapture(event.pointerId);
+    event.stopPropagation();
+    event.preventDefault();
+  }
+
+  function moveUmlNodeDrag(event) {
+    if (!state.umlNodeDragging || event.pointerId !== state.umlNodePointerId) return;
+    const node = event.currentTarget;
+    const scale = state.umlScale || 1;
+    const nextX = state.umlNodeOriginX + (event.clientX - state.umlNodeStartX) / scale;
+    const nextY = state.umlNodeOriginY + (event.clientY - state.umlNodeStartY) / scale;
+    node.dataset.x = String(Math.round(nextX * 10) / 10);
+    node.dataset.y = String(Math.round(nextY * 10) / 10);
+    node.setAttribute("transform", `translate(${node.dataset.x}, ${node.dataset.y})`);
+    updateUmlEdges($("#featureUmlBoard"));
+    event.stopPropagation();
+    event.preventDefault();
+  }
+
+  function stopUmlNodeDrag(event) {
+    if (!state.umlNodeDragging || event.pointerId !== state.umlNodePointerId) return;
+    const node = event.currentTarget;
+    const board = $("#featureUmlBoard");
+    state.umlNodeDragging = false;
+    state.umlNodePointerId = null;
+    node.classList.remove("is-dragging");
+    board.classList.remove("is-dragging-node");
+    if (node.releasePointerCapture && (!node.hasPointerCapture || node.hasPointerCapture(event.pointerId))) node.releasePointerCapture(event.pointerId);
+    event.stopPropagation();
   }
   function setUmlScale(nextScale) {
     const scale = Math.min(2.4, Math.max(0.6, Number(nextScale.toFixed(2))));
@@ -496,7 +613,7 @@
     const methodMarkup = renderUmlTextLines(methodLines, 130, 3, kind === "functions" ? "fn" : "+");
 
     return `
-      <g class="uml-node is-${escapeHtml(kind)}" transform="translate(${position.x}, ${position.y})">
+      <g class="uml-node is-${escapeHtml(kind)}" data-node-id="${escapeHtml(item.name || "Unnamed")}" data-x="${position.x}" data-y="${position.y}" data-w="${position.w}" data-h="${position.h}" transform="translate(${position.x}, ${position.y})">
         <rect class="uml-node-box" width="${position.w}" height="${position.h}" rx="8"></rect>
         ${renderSvgTextBlock("uml-node-type", item.type || kind, position.w / 2, 22, "middle", 30, 1, 12)}
         ${renderSvgTextBlock("uml-node-title", item.name || "Unnamed", position.w / 2, 40, "middle", 28, 2, 15)}
