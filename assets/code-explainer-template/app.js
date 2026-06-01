@@ -346,8 +346,8 @@
     const functionNodes = names.includes(functionNodeId) ? [functionNodeId] : [];
     const groups = [parentNodes, classNodes, externalNodes, functionNodes].filter(function (group) { return group.length; });
 
-    const nodeWidth = 198;
-    const nodeHeight = 150;
+    const nodeWidth = 236;
+    const nodeHeight = 190;
     const gapX = 38;
     const gapY = 70;
     const padding = 28;
@@ -378,7 +378,7 @@
       const cssType = `is-${edge.type}`;
       return `
         <path class="uml-edge ${cssType}" d="${line.path}" marker-end="${marker}"></path>
-        <text class="uml-edge-label" x="${line.labelX}" y="${line.labelY}" text-anchor="middle">${escapeHtml(edge.label || featureEdgeLabel(edge.type))}</text>
+        <text class="uml-edge-label" x="${line.labelX}" y="${line.labelY}" text-anchor="middle">${escapeHtml(shortText(edge.label || featureEdgeLabel(edge.type), 30))}</text>
       `;
     }).join("");
 
@@ -492,17 +492,17 @@
     const methods = Array.isArray(item.methods) ? item.methods : [];
     const propLines = kind === "functions" ? ["模块级工具函数"] : (properties.length ? properties : [kind === "external" ? "外部依赖" : "属性待提取"]);
     const methodLines = methods.length ? methods : [kind === "external" ? "由关系图引用" : "方法待提取"];
-    const propMarkup = renderUmlTextLines(propLines, 68, 2, kind === "functions" ? "scope" : "+");
-    const methodMarkup = renderUmlTextLines(methodLines, 108, 3, kind === "functions" ? "fn" : "+");
+    const propMarkup = renderUmlTextLines(propLines, 72, 2, kind === "functions" ? "scope" : "+");
+    const methodMarkup = renderUmlTextLines(methodLines, 130, 3, kind === "functions" ? "fn" : "+");
 
     return `
       <g class="uml-node is-${escapeHtml(kind)}" transform="translate(${position.x}, ${position.y})">
         <rect class="uml-node-box" width="${position.w}" height="${position.h}" rx="8"></rect>
-        <text class="uml-node-type" x="${position.w / 2}" y="22" text-anchor="middle">${escapeHtml(item.type || kind)}</text>
-        <text class="uml-node-title" x="${position.w / 2}" y="42" text-anchor="middle">${escapeHtml(shortText(item.name || "Unnamed", 24))}</text>
-        <line class="uml-divider" x1="0" x2="${position.w}" y1="54" y2="54"></line>
+        ${renderSvgTextBlock("uml-node-type", item.type || kind, position.w / 2, 22, "middle", 30, 1, 12)}
+        ${renderSvgTextBlock("uml-node-title", item.name || "Unnamed", position.w / 2, 40, "middle", 28, 2, 15)}
+        <line class="uml-divider" x1="0" x2="${position.w}" y1="62" y2="62"></line>
         ${propMarkup}
-        <line class="uml-divider" x1="0" x2="${position.w}" y1="94" y2="94"></line>
+        <line class="uml-divider" x1="0" x2="${position.w}" y1="120" y2="120"></line>
         ${methodMarkup}
       </g>
     `;
@@ -510,11 +510,27 @@
 
   function renderUmlTextLines(items, startY, maxLines, prefix) {
     const shown = items.slice(0, maxLines);
-    const rows = shown.map(function (item, index) {
-      return `<text class="uml-node-line" x="12" y="${startY + index * 16}">${escapeHtml(`${prefix} ${shortText(item, 28)}`)}</text>`;
+    const rows = [];
+    const visualLineLimit = startY < 100 ? 3 : 4;
+    let y = startY;
+    let usedLines = 0;
+    let truncated = false;
+
+    shown.forEach(function (item) {
+      if (usedLines >= visualLineLimit) {
+        truncated = true;
+        return;
+      }
+      const wrapped = wrapSvgText(`${prefix} ${item}`, 31, Math.min(2, visualLineLimit - usedLines));
+      wrapped.forEach(function (line) {
+        rows.push(`<text class="uml-node-line" x="12" y="${y}">${escapeHtml(line)}</text>`);
+        y += 15;
+        usedLines += 1;
+      });
     });
-    if (items.length > maxLines) {
-      rows.push(`<text class="uml-node-line is-more" x="12" y="${startY + shown.length * 16}">+ ${items.length - maxLines} more</text>`);
+
+    if (items.length > maxLines || truncated) {
+      rows.push(`<text class="uml-node-line is-more" x="12" y="${y}">+ ${Math.max(1, items.length - shown.length)} more</text>`);
     }
     return rows.join("");
   }
@@ -552,7 +568,39 @@
 
   function shortText(value, maxLength) {
     const text = String(value == null ? "" : value);
-    return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+    return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
+  }
+
+  function wrapSvgText(value, maxChars, maxLines) {
+    const text = String(value == null ? "" : value).trim() || "-";
+    const lines = [];
+    let rest = text;
+    while (rest.length && lines.length < maxLines) {
+      if (rest.length <= maxChars) {
+        lines.push(rest);
+        rest = "";
+      } else {
+        let index = rest.lastIndexOf(" ", maxChars);
+        if (index < Math.floor(maxChars * 0.55)) index = maxChars;
+        lines.push(rest.slice(0, index).trim());
+        rest = rest.slice(index).trim();
+      }
+    }
+    if (rest && lines.length) {
+      lines[lines.length - 1] = shortText(lines[lines.length - 1], Math.max(4, maxChars));
+    }
+    return lines.length ? lines : ["-"];
+  }
+
+  function renderSvgTextBlock(className, value, x, y, anchor, maxChars, maxLines, lineHeight) {
+    const lines = wrapSvgText(value, maxChars, maxLines);
+    return `
+      <text class="${className}" x="${x}" y="${y}" text-anchor="${anchor}">
+        ${lines.map(function (line, index) {
+          return `<tspan x="${x}" dy="${index === 0 ? 0 : lineHeight}">${escapeHtml(line)}</tspan>`;
+        }).join("")}
+      </text>
+    `;
   }
 
   function renderFeatureRelations(edges) {
@@ -597,9 +645,9 @@
     const nodeMarkup = nodes.map(function (node) {
       return `
         <g class="graph-node" transform="translate(${node.x}, ${node.y})" style="--node-color:${escapeHtml(node.color || "#bfdbfe")}">
-          <rect width="132" height="58"></rect>
-          <text x="66" y="25" text-anchor="middle">${escapeHtml(node.label)}</text>
-          <text class="node-type" x="66" y="43" text-anchor="middle">${escapeHtml(node.typeLabel || node.type || "Module")}</text>
+          <rect width="132" height="64"></rect>
+          ${renderSvgTextBlock("graph-node-label", node.label, 66, 22, "middle", 11, 2, 13)}
+          ${renderSvgTextBlock("node-type", node.typeLabel || node.type || "Module", 66, 51, "middle", 15, 1, 12)}
         </g>
       `;
     }).join("");
@@ -617,11 +665,11 @@
 
   function edgePoint(a, b) {
     const ax = a.x + 66;
-    const ay = a.y + 29;
+    const ay = a.y + 32;
     const bx = b.x + 66;
-    const by = b.y + 29;
+    const by = b.y + 32;
     if (Math.abs(ax - bx) > Math.abs(ay - by)) return { x: ax + (bx > ax ? 66 : -66), y: ay };
-    return { x: ax, y: ay + (by > ay ? 29 : -29) };
+    return { x: ax, y: ay + (by > ay ? 32 : -32) };
   }
 
   function renderRuntime() {
